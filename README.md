@@ -5,10 +5,10 @@ A highly scalable, distributed URL shortener service designed to handle high thr
 ## 📸 Screenshots
 
 ### Home Page - Shorten URLs instantly
-![SwiftZip Home Page](docs/doc1%20(1).png)
+![SwiftZip Dashboard](docs/doc1%20(2).png)
 
 ### Real-Time Analytics Dashboard
-![SwiftZip Dashboard](docs/doc1%20(2).png)
+![SwiftZip Home Page](docs/doc1%20(1).png)
 
 ## 🏗 Tech Stack
 - **Frontend**: React, Vite, Tailwind CSS v4, Recharts (for analytics graphs)
