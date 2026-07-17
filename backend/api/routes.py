@@ -5,7 +5,7 @@ from sqlalchemy import func, cast, Date, desc
 from pydantic import HttpUrl
 from datetime import datetime, timedelta, timezone
 from db.database import get_db, SessionLocal
-from db.models import URL, Analytics
+from db.models import URL, Analytics, Domain, User
 from api.schemas import URLCreate, URLResponse, AnalyticsResponse
 from services.base62 import encode_id, decode_id
 from services.analytics import parse_user_agent
@@ -56,7 +56,14 @@ def shorten_url(url_data: URLCreate, db: Session = Depends(get_db)):
     if url_data.expires_in_hours:
         expires_at = datetime.now(timezone.utc) + timedelta(hours=url_data.expires_in_hours)
 
-    new_url = URL(long_url=str(url_data.long_url), expires_at=expires_at)
+    domain_id = None
+    if url_data.custom_domain:
+        domain = db.query(Domain).filter(Domain.domain_name == url_data.custom_domain).first()
+        if not domain:
+            raise HTTPException(status_code=400, detail="Custom domain not registered")
+        domain_id = domain.id
+
+    new_url = URL(long_url=str(url_data.long_url), expires_at=expires_at, domain_id=domain_id)
     db.add(new_url)
     db.commit()
     db.refresh(new_url)
@@ -71,6 +78,10 @@ def shorten_url(url_data: URLCreate, db: Session = Depends(get_db)):
     else:
         redis_client.set(short_code, str(url_data.long_url))
 
+    if url_data.custom_domain:
+        protocol = "https" if "localhost" not in settings.BASE_URL else "http"
+        return URLResponse(short_url=f"{protocol}://{url_data.custom_domain}/{short_code}", expires_at=expires_at)
+    
     return URLResponse(short_url=f"{settings.BASE_URL}/{short_code}", expires_at=expires_at)
 
 
@@ -80,6 +91,7 @@ def redirect_to_url(short_code: str, request: Request, background_tasks: Backgro
         raise HTTPException(status_code=404, detail="Invalid short code")
 
     long_url = redis_client.get(short_code)
+    host = request.headers.get("host", "").split(":")[0]
 
     if not long_url:
         try:
@@ -90,6 +102,11 @@ def redirect_to_url(short_code: str, request: Request, background_tasks: Backgro
         url_record = db.query(URL).filter(URL.id == url_id).first()
         if not url_record:
             raise HTTPException(status_code=404, detail="URL not found")
+            
+        # Verify custom domain if applicable
+        if url_record.domain:
+            if url_record.domain.domain_name != host and host not in settings.BASE_URL:
+                raise HTTPException(status_code=404, detail="URL not found on this domain")
             
         # Ensure we compare timezone-aware datetimes
         if url_record.expires_at and url_record.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):

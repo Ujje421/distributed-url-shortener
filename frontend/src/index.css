@@ -1,7 +1,18 @@
 @import "tailwindcss";
 
+@theme {
+  --color-mint-500: #a5d6c8;
+  --color-mint-100: #D8EBE5;
+  --color-orange-500: #ef6c4f;
+  --color-cream-100: #F9F9F9;
+  --color-charcoal-900: #1A1A1A;
+  
+  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'Inter', sans-serif;
+}
+
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-cream-100 text-charcoal-900 font-sans;
   }
 }
