@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date, desc
 from pydantic import HttpUrl
+from datetime import datetime, timedelta, timezone
 from db.database import get_db, SessionLocal
 from db.models import URL, Analytics
 from api.schemas import URLCreate, URLResponse, AnalyticsResponse
@@ -10,6 +11,8 @@ from services.base62 import encode_id, decode_id
 from services.analytics import parse_user_agent
 from core.redis_client import redis_client
 from core.config import settings
+from core.rate_limit import RateLimiter
+from core.bloom_filter import bloom_filter
 import httpx
 
 router = APIRouter()
@@ -45,21 +48,37 @@ def save_analytics(url_id: int, ip_address: str, user_agent: str, device_type: s
         db.close()
 
 
-@router.post("/api/shorten", response_model=URLResponse)
+rate_limiter = RateLimiter(times=5, window_seconds=60)
+
+@router.post("/api/shorten", response_model=URLResponse, dependencies=[Depends(rate_limiter)])
 def shorten_url(url_data: URLCreate, db: Session = Depends(get_db)):
-    new_url = URL(long_url=str(url_data.long_url))
+    expires_at = None
+    if url_data.expires_in_hours:
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=url_data.expires_in_hours)
+
+    new_url = URL(long_url=str(url_data.long_url), expires_at=expires_at)
     db.add(new_url)
     db.commit()
     db.refresh(new_url)
 
     short_code = encode_id(new_url.id)
-    redis_client.set(short_code, str(url_data.long_url))
+    
+    # Add to bloom filter
+    bloom_filter.add(short_code)
 
-    return URLResponse(short_url=f"{settings.BASE_URL}/{short_code}")
+    if expires_at:
+        redis_client.setex(short_code, url_data.expires_in_hours * 3600, str(url_data.long_url))
+    else:
+        redis_client.set(short_code, str(url_data.long_url))
+
+    return URLResponse(short_url=f"{settings.BASE_URL}/{short_code}", expires_at=expires_at)
 
 
 @router.get("/{short_code}")
 def redirect_to_url(short_code: str, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    if not bloom_filter.might_contain(short_code):
+        raise HTTPException(status_code=404, detail="Invalid short code")
+
     long_url = redis_client.get(short_code)
 
     if not long_url:
@@ -71,9 +90,18 @@ def redirect_to_url(short_code: str, request: Request, background_tasks: Backgro
         url_record = db.query(URL).filter(URL.id == url_id).first()
         if not url_record:
             raise HTTPException(status_code=404, detail="URL not found")
+            
+        # Ensure we compare timezone-aware datetimes
+        if url_record.expires_at and url_record.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            raise HTTPException(status_code=410, detail="URL has expired")
         
         long_url = url_record.long_url
-        redis_client.set(short_code, long_url)
+        if url_record.expires_at:
+            ttl = int((url_record.expires_at.replace(tzinfo=timezone.utc) - datetime.now(timezone.utc)).total_seconds())
+            if ttl > 0:
+                redis_client.setex(short_code, ttl, long_url)
+        else:
+            redis_client.set(short_code, long_url)
     else:
         try:
             url_id = decode_id(short_code)

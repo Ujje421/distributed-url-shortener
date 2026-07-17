@@ -26,16 +26,24 @@ export interface AnalyticsResponse {
   top_devices: TopDevice[];
 }
 
-export const shortenUrl = async (longUrl: string): Promise<ShortenResponse> => {
+export const shortenUrl = async (longUrl: string, expiresInHours?: number): Promise<ShortenResponse> => {
+  const body: any = { long_url: longUrl };
+  if (expiresInHours) {
+    body.expires_in_hours = expiresInHours;
+  }
+  
   const response = await fetch(`${API_BASE_URL}/api/shorten`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ long_url: longUrl }),
+    body: JSON.stringify(body),
   });
   
   if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error('Too many requests. Please slow down.');
+    }
     throw new Error('Failed to shorten URL');
   }
   

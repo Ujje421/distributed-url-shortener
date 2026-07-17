@@ -3,9 +3,11 @@ from datetime import datetime
 
 class URLCreate(BaseModel):
     long_url: HttpUrl
+    expires_in_hours: int | None = None
 
 class URLResponse(BaseModel):
     short_url: str
+    expires_at: datetime | None = None
 
 class ClicksByDate(BaseModel):
     date: str
