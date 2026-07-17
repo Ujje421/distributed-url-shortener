@@ -19,11 +19,13 @@ A highly scalable, distributed URL shortener service designed to handle high thr
 - **External Services**: IP-API for GeoIP tracking (handled via FastAPI Background Tasks)
 
 ## ⚡ Key Features
-- **Instant Shortening**: Generate clean, short aliases for long URLs.
-- **Lightning Fast Redirects**: Uses Redis to cache URL lookups, ensuring O(1) read latency.
-- **Background GeoIP Tracking**: Uses `httpx` in a non-blocking FastAPI Background Task to look up user location without delaying the redirect.
-- **Advanced DB Aggregation**: Analytics endpoint uses SQLAlchemy `func.date_trunc`, `func.count`, and `group_by` to build real-time click distribution, top countries, and top devices metrics directly from PostgreSQL.
-- **Unified Modern UI**: Built with Tailwind v4, utilizing a clean layout with dynamic Recharts integration.
+- **Enterprise-Grade UI**: A total frontend overhaul delivering a high-end SaaS aesthetic (crisp layout, Vercel-like design) built with React and Tailwind CSS v4.
+- **Cache Penetration Protection (Bloom Filter)**: Implemented a custom probabilistic data structure using Redis Bitsets to intercept and instantly reject queries for non-existent URLs at O(1) time complexity without hitting the database.
+- **Redis Rate Limiting**: A fixed-window rate limiter built on Redis to prevent API abuse and throttle excessive requests, returning HTTP `429 Too Many Requests`.
+- **Custom Link Expiry**: Users can now set custom TTLs (1 Hour, 1 Day, 7 Days) for short links. The expiration logic is synchronized natively via Redis `SETEX` and persisted via an `expires_at` database column.
+- **Lightning Fast Redirects**: Uses Redis to cache valid URL lookups, ensuring sub-millisecond read latency.
+- **Background GeoIP Tracking**: Uses `httpx` in a non-blocking FastAPI Background Task to capture user location without delaying the redirect.
+- **Advanced DB Aggregation**: Analytics endpoint leverages PostgreSQL and SQLAlchemy `func.date_trunc`, `func.count`, and `group_by` to power a live metrics dashboard tracking click distribution, top countries, and devices.
 
 ## 🚀 How to Run Locally
 
