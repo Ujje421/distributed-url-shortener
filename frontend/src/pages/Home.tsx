@@ -6,7 +6,7 @@ import { CheckCircle, ShieldCheck, Sliders, Zap } from 'lucide-react';
 const Home: React.FC = () => {
   const [url, setUrl] = useState('');
   const [domain, setDomain] = useState('');
-  const [expiresIn, setExpiresIn] = useState<number | undefined>(undefined);
+  const [expiresIn] = useState<number | undefined>(undefined);
   const [shortUrl, setShortUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -185,7 +185,10 @@ const Home: React.FC = () => {
             <p className="text-charcoal-900/80 text-lg mb-8 font-medium max-w-md">
               Used by thousands of developers to reliably redirect traffic across the globe with zero downtime.
             </p>
-            <button className="px-10 py-4 rounded-full bg-charcoal-900 text-white font-bold text-lg hover:bg-black transition-colors shadow-xl">
+            <button 
+              onClick={() => navigate('/register')}
+              className="px-10 py-4 rounded-full bg-charcoal-900 text-white font-bold text-lg hover:bg-black transition-colors shadow-xl"
+            >
               Register Now
             </button>
           </div>

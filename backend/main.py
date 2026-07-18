@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import router
 from db.database import engine, Base
 from core.config import settings
 
@@ -23,7 +22,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from api.routes import router
+from api.auth import router as auth_router
+
 app.include_router(router)
+app.include_router(auth_router)
 
 @app.get("/health")
 def health_check():

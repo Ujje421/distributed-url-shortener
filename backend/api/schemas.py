@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, EmailStr
 from datetime import datetime
 
 class URLCreate(BaseModel):
@@ -27,3 +27,12 @@ class AnalyticsResponse(BaseModel):
     clicks_over_time: list[ClicksByDate]
     top_countries: list[TopCountry]
     top_devices: list[TopDevice]
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str | None = None
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
